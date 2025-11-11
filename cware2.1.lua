@@ -37,7 +37,7 @@ local ESP_FILL_TRANSPARENCY = 0.6
 local ESP_OUTLINE_TRANSPARENCY = 0
 
 -- Aimlock Configuration
-local AIMLOCK_KEY = Enum.UserInputType.MouseButton2 -- Right click hold
+local AIMLOCK_KEY = Enum.KeyCode.RightControl
 local AIM_SMOOTHNESS = 5
 local AIM_FOV_SIZE = 200
 local AIM_TARGET_PART = "Head"
@@ -58,14 +58,13 @@ local guiVisible = false
 local highlights = {}
 local currentColorPicker = nil
 local currentPickerType = nil
-local aimlockActive = false -- Changed from aimlockEnabled to aimlockActive for hold functionality
+local aimlockEnabled = false
 local currentTarget = nil
 local aimlockConnection = nil
 local triggerBotConnection = nil
 local watermarksVisible = true
 local rainbowHue = 0
 local loadingComplete = false
-local rightMouseDown = false
 
 -- Key Verification Function
 local function verifyKey(inputKey)
@@ -327,16 +326,16 @@ local function startMainScript()
 	aimlockTitle.TextXAlignment = Enum.TextXAlignment.Left
 	aimlockTitle.Parent = mainFrame
 
-	-- Aimlock Status Button (Read-only)
-	local aimlockStatusButton = Instance.new("TextButton")
-	aimlockStatusButton.Size = UDim2.new(0, 220, 0, 25)
-	aimlockStatusButton.Position = UDim2.new(0.5, -110, 0, 230)
-	aimlockStatusButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	aimlockStatusButton.Text = "AIMLOCK: HOLD RIGHT CLICK"
-	aimlockStatusButton.Font = Enum.Font.Code
-	aimlockStatusButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	aimlockStatusButton.TextSize = 12
-	aimlockStatusButton.Parent = mainFrame
+	-- Aimlock Toggle Button
+	local aimlockToggleButton = Instance.new("TextButton")
+	aimlockToggleButton.Size = UDim2.new(0, 220, 0, 25)
+	aimlockToggleButton.Position = UDim2.new(0.5, -110, 0, 230)
+	aimlockToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	aimlockToggleButton.Text = "AIMLOCK: OFF (RightCtrl)"
+	aimlockToggleButton.Font = Enum.Font.Code
+	aimlockToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	aimlockToggleButton.TextSize = 12
+	aimlockToggleButton.Parent = mainFrame
 
 	-- Trigger Bot Toggle Button
 	local triggerBotToggleButton = Instance.new("TextButton")
@@ -659,7 +658,7 @@ local function startMainScript()
 	end
 
 	local function aimAtTarget()
-		if not aimlockActive then return end
+		if not aimlockEnabled then return end
 
 		currentTarget = findNearestTarget()
 
@@ -682,7 +681,7 @@ local function startMainScript()
 	--// Trigger Bot Functions
 	local function triggerBot()
 		if not TRIGGER_BOT_ENABLED then return end
-		if not aimlockActive then return end
+		if not aimlockEnabled then return end
 
 		if currentTarget and currentTarget.Character then
 			local targetPart = currentTarget.Character:FindFirstChild(AIM_TARGET_PART)
@@ -693,45 +692,26 @@ local function startMainScript()
 		end
 	end
 
-	local function startAimlock()
-		if aimlockActive then return end
-		
-		aimlockActive = true
-		
-		-- Start aimlock connection
-		aimlockConnection = RunService.RenderStepped:Connect(aimAtTarget)
-		
-		-- Start trigger bot if enabled
-		if TRIGGER_BOT_ENABLED then
-			triggerBotConnection = RunService.RenderStepped:Connect(triggerBot)
-		end
-		
-		-- Update button appearance
-		aimlockStatusButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-		aimlockStatusButton.Text = "AIMLOCK: ACTIVE (HOLDING)"
-	end
+	local function toggleAimlock()
+		aimlockEnabled = not aimlockEnabled
+		aimlockToggleButton.Text = aimlockEnabled and "AIMLOCK: ON (RightCtrl)" or "AIMLOCK: OFF (RightCtrl)"
 
-	local function stopAimlock()
-		if not aimlockActive then return end
-		
-		aimlockActive = false
-		
-		-- Disconnect connections
-		if aimlockConnection then
-			aimlockConnection:Disconnect()
-			aimlockConnection = nil
+		if aimlockEnabled then
+			aimlockConnection = RunService.RenderStepped:Connect(aimAtTarget)
+			if TRIGGER_BOT_ENABLED then
+				triggerBotConnection = RunService.RenderStepped:Connect(triggerBot)
+			end
+		else
+			if aimlockConnection then
+				aimlockConnection:Disconnect()
+				aimlockConnection = nil
+			end
+			if triggerBotConnection then
+				triggerBotConnection:Disconnect()
+				triggerBotConnection = nil
+			end
+			currentTarget = nil
 		end
-		
-		if triggerBotConnection then
-			triggerBotConnection:Disconnect()
-			triggerBotConnection = nil
-		end
-		
-		currentTarget = nil
-		
-		-- Update button appearance
-		aimlockStatusButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-		aimlockStatusButton.Text = "AIMLOCK: HOLD RIGHT CLICK"
 	end
 
 	local function toggleTriggerBot()
@@ -739,7 +719,7 @@ local function startMainScript()
 
 		triggerBotToggleButton.Text = TRIGGER_BOT_ENABLED and "TRIGGER BOT: ON" or "TRIGGER BOT: OFF"
 
-		if TRIGGER_BOT_ENABLED and aimlockActive then
+		if TRIGGER_BOT_ENABLED and aimlockEnabled then
 			triggerBotConnection = RunService.RenderStepped:Connect(triggerBot)
 		elseif triggerBotConnection then
 			triggerBotConnection:Disconnect()
@@ -985,6 +965,7 @@ local function startMainScript()
 
 	espVisibleCheckButton.MouseButton1Click:Connect(toggleESPVisibleCheck)
 	watermarkToggleButton.MouseButton1Click:Connect(toggleWatermarks)
+	aimlockToggleButton.MouseButton1Click:Connect(toggleAimlock)
 	triggerBotToggleButton.MouseButton1Click:Connect(toggleTriggerBot)
 	targetPartButton.MouseButton1Click:Connect(cycleTargetPart)
 	teamCheckButton.MouseButton1Click:Connect(toggleTeamCheck)
@@ -1035,9 +1016,8 @@ local function startMainScript()
 			return
 		end
 
-		if input.UserInputType == AIMLOCK_KEY then
-			rightMouseDown = true
-			startAimlock()
+		if input.KeyCode == AIMLOCK_KEY then
+			toggleAimlock()
 			return
 		end
 
@@ -1046,16 +1026,6 @@ local function startMainScript()
 				toggleESP()
 				return
 			end
-		end
-	end)
-
-	UIS.InputEnded:Connect(function(input, gp)
-		if gp then return end
-
-		if input.UserInputType == AIMLOCK_KEY then
-			rightMouseDown = false
-			stopAimlock()
-			return
 		end
 	end)
 
