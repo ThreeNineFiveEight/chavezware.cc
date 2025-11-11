@@ -32,11 +32,12 @@ local GUI_TOGGLE_KEY = Enum.KeyCode.RightShift
 local ESP_TOGGLE_KEYS = { Enum.KeyCode.E, Enum.KeyCode.Delete }
 local ESP_FILL_COLOR = Color3.fromRGB(255, 0, 0)
 local ESP_OUTLINE_COLOR = Color3.fromRGB(255, 255, 255)
+local ESP_VISIBLE_COLOR = Color3.fromRGB(0, 255, 0) -- Green for visible players
 local ESP_FILL_TRANSPARENCY = 0.6
 local ESP_OUTLINE_TRANSPARENCY = 0
 
 -- Aimlock Configuration
-local AIMLOCK_KEY = Enum.KeyCode.RightControl
+local AIMLOCK_KEY = Enum.UserInputType.MouseButton2 -- Right click hold
 local AIM_SMOOTHNESS = 5
 local AIM_FOV_SIZE = 200
 local AIM_TARGET_PART = "Head"
@@ -47,6 +48,9 @@ local AIM_MAX_DISTANCE = 500
 
 -- Trigger Bot Configuration
 local TRIGGER_BOT_ENABLED = false
+
+-- ESP Visibility Check
+local ESP_VISIBLE_CHECK_ENABLED = true
 
 -- State
 local espEnabled = false
@@ -61,6 +65,7 @@ local triggerBotConnection = nil
 local watermarksVisible = true
 local rainbowHue = 0
 local loadingComplete = false
+local rightMouseDown = false
 
 -- Key Verification Function
 local function verifyKey(inputKey)
@@ -192,7 +197,7 @@ local function startMainScript()
 
 	-- Main frame (adjusted height to fit properly)
 	mainFrame = Instance.new("Frame")
-	mainFrame.Size = UDim2.new(0, 250, 0, 400)
+	mainFrame.Size = UDim2.new(0, 250, 0, 430) -- Increased height for new button
 	mainFrame.Position = UDim2.new(0.5, -125, 0.3, 0)
 	mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 	mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
@@ -259,29 +264,50 @@ local function startMainScript()
 
 	-- Color Buttons Row
 	local fillColorButton = Instance.new("TextButton")
-	fillColorButton.Size = UDim2.new(0, 100, 0, 25)
+	fillColorButton.Size = UDim2.new(0, 65, 0, 25)
 	fillColorButton.Position = UDim2.new(0, 10, 0, 110)
 	fillColorButton.BackgroundColor3 = ESP_FILL_COLOR
-	fillColorButton.Text = "Fill Color"
+	fillColorButton.Text = "Fill"
 	fillColorButton.Font = Enum.Font.Code
 	fillColorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	fillColorButton.TextSize = 12
 	fillColorButton.Parent = mainFrame
 
 	local outlineColorButton = Instance.new("TextButton")
-	outlineColorButton.Size = UDim2.new(0, 100, 0, 25)
-	outlineColorButton.Position = UDim2.new(1, -110, 0, 110)
+	outlineColorButton.Size = UDim2.new(0, 65, 0, 25)
+	outlineColorButton.Position = UDim2.new(0.5, -32.5, 0, 110)
 	outlineColorButton.BackgroundColor3 = ESP_OUTLINE_COLOR
-	outlineColorButton.Text = "Outline Color"
+	outlineColorButton.Text = "Outline"
 	outlineColorButton.Font = Enum.Font.Code
 	outlineColorButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 	outlineColorButton.TextSize = 12
 	outlineColorButton.Parent = mainFrame
 
+	local visibleColorButton = Instance.new("TextButton")
+	visibleColorButton.Size = UDim2.new(0, 65, 0, 25)
+	visibleColorButton.Position = UDim2.new(1, -75, 0, 110)
+	visibleColorButton.BackgroundColor3 = ESP_VISIBLE_COLOR
+	visibleColorButton.Text = "Visible"
+	visibleColorButton.Font = Enum.Font.Code
+	visibleColorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	visibleColorButton.TextSize = 12
+	visibleColorButton.Parent = mainFrame
+
+	-- ESP Visible Check Toggle
+	local espVisibleCheckButton = Instance.new("TextButton")
+	espVisibleCheckButton.Size = UDim2.new(0, 220, 0, 25)
+	espVisibleCheckButton.Position = UDim2.new(0.5, -110, 0, 140)
+	espVisibleCheckButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	espVisibleCheckButton.Text = "ESP Visible Check: ON"
+	espVisibleCheckButton.Font = Enum.Font.Code
+	espVisibleCheckButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	espVisibleCheckButton.TextSize = 12
+	espVisibleCheckButton.Parent = mainFrame
+
 	-- Watermark Toggle Button
 	local watermarkToggleButton = Instance.new("TextButton")
 	watermarkToggleButton.Size = UDim2.new(0, 220, 0, 25)
-	watermarkToggleButton.Position = UDim2.new(0.5, -110, 0, 140)
+	watermarkToggleButton.Position = UDim2.new(0.5, -110, 0, 170)
 	watermarkToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 	watermarkToggleButton.Text = "Watermark: ON"
 	watermarkToggleButton.Font = Enum.Font.Code
@@ -292,7 +318,7 @@ local function startMainScript()
 	-- Aimlock Section
 	local aimlockTitle = Instance.new("TextLabel")
 	aimlockTitle.Size = UDim2.new(1, -10, 0, 20)
-	aimlockTitle.Position = UDim2.new(0, 5, 0, 175)
+	aimlockTitle.Position = UDim2.new(0, 5, 0, 205)
 	aimlockTitle.BackgroundTransparency = 1
 	aimlockTitle.Text = "AIMLOCK:"
 	aimlockTitle.Font = Enum.Font.Code
@@ -304,9 +330,9 @@ local function startMainScript()
 	-- Aimlock Toggle Button
 	local aimlockToggleButton = Instance.new("TextButton")
 	aimlockToggleButton.Size = UDim2.new(0, 220, 0, 25)
-	aimlockToggleButton.Position = UDim2.new(0.5, -110, 0, 200)
+	aimlockToggleButton.Position = UDim2.new(0.5, -110, 0, 230)
 	aimlockToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-	aimlockToggleButton.Text = "AIMLOCK: OFF (RightCtrl)"
+	aimlockToggleButton.Text = "AIMLOCK: OFF (RightClick)"
 	aimlockToggleButton.Font = Enum.Font.Code
 	aimlockToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 	aimlockToggleButton.TextSize = 12
@@ -315,7 +341,7 @@ local function startMainScript()
 	-- Trigger Bot Toggle Button
 	local triggerBotToggleButton = Instance.new("TextButton")
 	triggerBotToggleButton.Size = UDim2.new(0, 220, 0, 25)
-	triggerBotToggleButton.Position = UDim2.new(0.5, -110, 0, 230)
+	triggerBotToggleButton.Position = UDim2.new(0.5, -110, 0, 260)
 	triggerBotToggleButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 	triggerBotToggleButton.Text = "TRIGGER BOT: OFF"
 	triggerBotToggleButton.Font = Enum.Font.Code
@@ -326,7 +352,7 @@ local function startMainScript()
 	-- Aimlock Settings Row 1
 	local targetPartButton = Instance.new("TextButton")
 	targetPartButton.Size = UDim2.new(0, 100, 0, 25)
-	targetPartButton.Position = UDim2.new(0, 10, 0, 265)
+	targetPartButton.Position = UDim2.new(0, 10, 0, 295)
 	targetPartButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 	targetPartButton.Text = "Target: Head"
 	targetPartButton.Font = Enum.Font.Code
@@ -336,7 +362,7 @@ local function startMainScript()
 
 	local teamCheckButton = Instance.new("TextButton")
 	teamCheckButton.Size = UDim2.new(0, 100, 0, 25)
-	teamCheckButton.Position = UDim2.new(1, -110, 0, 265)
+	teamCheckButton.Position = UDim2.new(1, -110, 0, 295)
 	teamCheckButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 	teamCheckButton.Text = "Team Check: ON"
 	teamCheckButton.Font = Enum.Font.Code
@@ -347,7 +373,7 @@ local function startMainScript()
 	-- Aimlock Settings Row 2
 	local visibleCheckButton = Instance.new("TextButton")
 	visibleCheckButton.Size = UDim2.new(0, 100, 0, 25)
-	visibleCheckButton.Position = UDim2.new(0, 10, 0, 295)
+	visibleCheckButton.Position = UDim2.new(0, 10, 0, 325)
 	visibleCheckButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 	visibleCheckButton.Text = "Visible Check: ON"
 	visibleCheckButton.Font = Enum.Font.Code
@@ -357,7 +383,7 @@ local function startMainScript()
 
 	local fovVisibleButton = Instance.new("TextButton")
 	fovVisibleButton.Size = UDim2.new(0, 100, 0, 25)
-	fovVisibleButton.Position = UDim2.new(1, -110, 0, 295)
+	fovVisibleButton.Position = UDim2.new(1, -110, 0, 325)
 	fovVisibleButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 	fovVisibleButton.Text = "FOV Circle: ON"
 	fovVisibleButton.Font = Enum.Font.Code
@@ -368,7 +394,7 @@ local function startMainScript()
 	-- Smoothness Settings
 	local smoothnessLabel = Instance.new("TextLabel")
 	smoothnessLabel.Size = UDim2.new(0, 80, 0, 20)
-	smoothnessLabel.Position = UDim2.new(0, 10, 0, 330)
+	smoothnessLabel.Position = UDim2.new(0, 10, 0, 360)
 	smoothnessLabel.BackgroundTransparency = 1
 	smoothnessLabel.Text = "Smooth: " .. AIM_SMOOTHNESS
 	smoothnessLabel.Font = Enum.Font.Code
@@ -379,7 +405,7 @@ local function startMainScript()
 
 	local smoothnessSlider = Instance.new("TextButton")
 	smoothnessSlider.Size = UDim2.new(0, 140, 0, 10)
-	smoothnessSlider.Position = UDim2.new(0, 95, 0, 333)
+	smoothnessSlider.Position = UDim2.new(0, 95, 0, 363)
 	smoothnessSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	smoothnessSlider.Text = ""
 	smoothnessSlider.Parent = mainFrame
@@ -394,7 +420,7 @@ local function startMainScript()
 	-- FOV Size Settings
 	local fovSizeLabel = Instance.new("TextLabel")
 	fovSizeLabel.Size = UDim2.new(0, 80, 0, 20)
-	fovSizeLabel.Position = UDim2.new(0, 10, 0, 350)
+	fovSizeLabel.Position = UDim2.new(0, 10, 0, 380)
 	fovSizeLabel.BackgroundTransparency = 1
 	fovSizeLabel.Text = "FOV: " .. AIM_FOV_SIZE
 	fovSizeLabel.Font = Enum.Font.Code
@@ -405,7 +431,7 @@ local function startMainScript()
 
 	local fovSizeSlider = Instance.new("TextButton")
 	fovSizeSlider.Size = UDim2.new(0, 140, 0, 10)
-	fovSizeSlider.Position = UDim2.new(0, 95, 0, 353)
+	fovSizeSlider.Position = UDim2.new(0, 95, 0, 383)
 	fovSizeSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	fovSizeSlider.Text = ""
 	fovSizeSlider.Parent = mainFrame
@@ -420,7 +446,7 @@ local function startMainScript()
 	-- Range Settings
 	local rangeLabel = Instance.new("TextLabel")
 	rangeLabel.Size = UDim2.new(0, 80, 0, 20)
-	rangeLabel.Position = UDim2.new(0, 10, 0, 370)
+	rangeLabel.Position = UDim2.new(0, 10, 0, 400)
 	rangeLabel.BackgroundTransparency = 1
 	rangeLabel.Text = "Range: " .. AIM_MAX_DISTANCE
 	rangeLabel.Font = Enum.Font.Code
@@ -431,7 +457,7 @@ local function startMainScript()
 
 	local rangeSlider = Instance.new("TextButton")
 	rangeSlider.Size = UDim2.new(0, 140, 0, 10)
-	rangeSlider.Position = UDim2.new(0, 95, 0, 373)
+	rangeSlider.Position = UDim2.new(0, 95, 0, 403)
 	rangeSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 	rangeSlider.Text = ""
 	rangeSlider.Parent = mainFrame
@@ -462,12 +488,47 @@ local function startMainScript()
 	aimlockFOVCircle.Parent = fovCircleGui
 
 	--// ESP Functions
+	local function isPlayerVisible(player)
+		if not ESP_VISIBLE_CHECK_ENABLED then return false end
+
+		local localChar = LocalPlayer.Character
+		local targetChar = player.Character
+
+		if not localChar or not targetChar then return false end
+
+		local localRoot = localChar:FindFirstChild("HumanoidRootPart")
+		local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
+
+		if not localRoot or not targetRoot then return false end
+
+		local origin = localRoot.Position
+		local target = targetRoot.Position
+
+		-- Raycast to check for walls
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+		raycastParams.FilterDescendantsInstances = {localChar, targetChar}
+
+		local raycastResult = Workspace:Raycast(origin, target - origin, raycastParams)
+
+		-- If raycast hits nothing, target is visible
+		return raycastResult == nil
+	end
+
 	local function applyESP(player)
 		if player.Character and not player.Character:FindFirstChild("ChavezwareESP") then
 			local highlight = Instance.new("Highlight")
 			highlight.Name = "ChavezwareESP"
-			highlight.FillColor = ESP_FILL_COLOR
-			highlight.OutlineColor = ESP_OUTLINE_COLOR
+
+			-- Set color based on visibility
+			if ESP_VISIBLE_CHECK_ENABLED and isPlayerVisible(player) then
+				highlight.FillColor = ESP_VISIBLE_COLOR
+				highlight.OutlineColor = ESP_VISIBLE_COLOR
+			else
+				highlight.FillColor = ESP_FILL_COLOR
+				highlight.OutlineColor = ESP_OUTLINE_COLOR
+			end
+
 			highlight.FillTransparency = ESP_FILL_TRANSPARENCY
 			highlight.OutlineTransparency = ESP_OUTLINE_TRANSPARENCY
 			highlight.Parent = player.Character
@@ -488,8 +549,15 @@ local function startMainScript()
 	local function updateAllESP()
 		for player, highlight in pairs(highlights) do
 			if player.Character and highlight then
-				highlight.FillColor = ESP_FILL_COLOR
-				highlight.OutlineColor = ESP_OUTLINE_COLOR
+				-- Update colors based on visibility
+				if ESP_VISIBLE_CHECK_ENABLED and isPlayerVisible(player) then
+					highlight.FillColor = ESP_VISIBLE_COLOR
+					highlight.OutlineColor = ESP_VISIBLE_COLOR
+				else
+					highlight.FillColor = ESP_FILL_COLOR
+					highlight.OutlineColor = ESP_OUTLINE_COLOR
+				end
+
 				highlight.FillTransparency = ESP_FILL_TRANSPARENCY
 				highlight.OutlineTransparency = ESP_OUTLINE_TRANSPARENCY
 			end
@@ -627,7 +695,7 @@ local function startMainScript()
 
 	local function toggleAimlock()
 		aimlockEnabled = not aimlockEnabled
-		aimlockToggleButton.Text = aimlockEnabled and "AIMLOCK: ON (RightCtrl)" or "AIMLOCK: OFF (RightCtrl)"
+		aimlockToggleButton.Text = aimlockEnabled and "AIMLOCK: ON (RightClick)" or "AIMLOCK: OFF (RightClick)"
 
 		if aimlockEnabled then
 			aimlockConnection = RunService.RenderStepped:Connect(aimAtTarget)
@@ -682,6 +750,12 @@ local function startMainScript()
 		AIM_FOV_VISIBLE = not AIM_FOV_VISIBLE
 		fovVisibleButton.Text = AIM_FOV_VISIBLE and "FOV Circle: ON" or "FOV Circle: OFF"
 		updateFOVVisibility()
+	end
+
+	local function toggleESPVisibleCheck()
+		ESP_VISIBLE_CHECK_ENABLED = not ESP_VISIBLE_CHECK_ENABLED
+		espVisibleCheckButton.Text = ESP_VISIBLE_CHECK_ENABLED and "ESP Visible Check: ON" or "ESP Visible Check: OFF"
+		updateAllESP()
 	end
 
 	-- Range Slider Functionality
@@ -745,8 +819,8 @@ local function startMainScript()
 	end
 
 	-- Simple Color Picker
-	local function createColorPicker(isFillColor)
-		if currentColorPicker and currentPickerType == (isFillColor and "fill" or "outline") then
+	local function createColorPicker(isFillColor, isOutlineColor, isVisibleColor)
+		if currentColorPicker and currentPickerType == (isFillColor and "fill" or isOutlineColor and "outline" or "visible") then
 			closeColorPicker()
 			return
 		end
@@ -774,12 +848,12 @@ local function startMainScript()
 		colorPicker.Parent = screenGui
 
 		currentColorPicker = colorPicker
-		currentPickerType = isFillColor and "fill" or "outline"
+		currentPickerType = isFillColor and "fill" or isOutlineColor and "outline" or "visible"
 
 		local title = Instance.new("TextLabel")
 		title.Size = UDim2.new(1, 0, 0, 25)
 		title.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-		title.Text = isFillColor and "Select Fill Color" or "Select Outline Color"
+		title.Text = isFillColor and "Select Fill Color" or isOutlineColor and "Select Outline Color" or "Select Visible Color"
 		title.Font = Enum.Font.Code
 		title.TextColor3 = Color3.fromRGB(255, 255, 255)
 		title.TextSize = 14
@@ -809,11 +883,16 @@ local function startMainScript()
 					fillColorButton.BackgroundColor3 = color
 					local brightness = (color.R * 255 * 0.299 + color.G * 255 * 0.587 + color.B * 255 * 0.114)
 					fillColorButton.TextColor3 = brightness > 127 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
-				else
+				elseif isOutlineColor then
 					ESP_OUTLINE_COLOR = color
 					outlineColorButton.BackgroundColor3 = color
 					local brightness = (color.R * 255 * 0.299 + color.G * 255 * 0.587 + color.B * 255 * 0.114)
 					outlineColorButton.TextColor3 = brightness > 127 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+				elseif isVisibleColor then
+					ESP_VISIBLE_COLOR = color
+					visibleColorButton.BackgroundColor3 = color
+					local brightness = (color.R * 255 * 0.299 + color.G * 255 * 0.587 + color.B * 255 * 0.114)
+					visibleColorButton.TextColor3 = brightness > 127 and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
 				end
 				updateAllESP()
 				closeColorPicker()
@@ -874,13 +953,18 @@ local function startMainScript()
 
 	-- Button Connections
 	fillColorButton.MouseButton1Click:Connect(function()
-		createColorPicker(true)
+		createColorPicker(true, false, false)
 	end)
 
 	outlineColorButton.MouseButton1Click:Connect(function()
-		createColorPicker(false)
+		createColorPicker(false, true, false)
 	end)
 
+	visibleColorButton.MouseButton1Click:Connect(function()
+		createColorPicker(false, false, true)
+	end)
+
+	espVisibleCheckButton.MouseButton1Click:Connect(toggleESPVisibleCheck)
 	watermarkToggleButton.MouseButton1Click:Connect(toggleWatermarks)
 	aimlockToggleButton.MouseButton1Click:Connect(toggleAimlock)
 	triggerBotToggleButton.MouseButton1Click:Connect(toggleTriggerBot)
@@ -933,8 +1017,11 @@ local function startMainScript()
 			return
 		end
 
-		if input.KeyCode == AIMLOCK_KEY then
-			toggleAimlock()
+		if input.UserInputType == AIMLOCK_KEY then
+			rightMouseDown = true
+			if not aimlockEnabled then
+				toggleAimlock()
+			end
 			return
 		end
 
@@ -943,6 +1030,25 @@ local function startMainScript()
 				toggleESP()
 				return
 			end
+		end
+	end)
+
+	UIS.InputEnded:Connect(function(input, gp)
+		if gp then return end
+
+		if input.UserInputType == AIMLOCK_KEY then
+			rightMouseDown = false
+			if aimlockEnabled then
+				toggleAimlock()
+			end
+			return
+		end
+	end)
+
+	-- Update ESP colors in real-time for visibility changes
+	RunService.RenderStepped:Connect(function()
+		if espEnabled and ESP_VISIBLE_CHECK_ENABLED then
+			updateAllESP()
 		end
 	end)
 
